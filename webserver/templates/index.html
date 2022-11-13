@@ -7,7 +7,7 @@
   </style>
 
 
-<body>
+<!-- <body>
   <h1>Some famous Computer Scientists</h1>
   <div>{{data}}</div>
 
@@ -23,6 +23,22 @@
 <p>Name of new computer scientist: <input type="text" name="name"> <input type="submit" value="Add"></p>
 </form>
 
+</body> -->
+
+<body>
+  <!-- <div>
+    {% for n in data %}
+    <div>{{n}}</div>
+    {% endfor %}
+  </div> -->
+  <!-- <p><a href="/another">Go to the other page</a></p> -->
+  <h1> Please input your user name </h1>
+  <form method="POST" action="/user_login">
+    <p>User name: <input type="text" name="username"> </p>
+    <p> If you are a first-time user, please also fill out the form below before pressing Continue, else you'll be redirected back here</p>
+    <p>Train station closest to you: <input type="text" name="user_addr"></p>
+    <p><input type="submit" value="Continue"></p>
+  </form>
 </body>
 
 

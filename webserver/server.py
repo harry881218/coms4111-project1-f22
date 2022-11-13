@@ -18,11 +18,11 @@ Read about it online.
 import os
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
-from flask import Flask, request, render_template, g, redirect, Response
+from flask import Flask, request, render_template, g, redirect, Response, flash, session
 
 tmpl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
 app = Flask(__name__, template_folder=tmpl_dir)
-
+app.secret_key = "super secret key"
 
 
 # XXX: The Database URI should be in the format of: 
@@ -126,6 +126,12 @@ def index():
     names.append(result['name'])  # can also be accessed using result[0]
   cursor.close()
 
+  cursor = g.conn.execute("SELECT * FROM station")
+  stations = []
+  for result in cursor:
+    stations.append(result[1])
+  cursor.close()
+
   #
   # Flask uses Jinja templates, which is an extension to HTML where you can
   # pass data to a template and dynamically generate HTML based on the data
@@ -152,7 +158,8 @@ def index():
   #     <div>{{n}}</div>
   #     {% endfor %}
   #
-  context = dict(data = names)
+  #context = dict(data = names)
+  context = dict(data = stations)
 
 
   #
@@ -173,6 +180,17 @@ def index():
 def another():
   return render_template("anotherfile.html")
 
+@app.route('/selection')
+def selection():
+  uid = [session.get('user_id', None)]
+  print("session uid is", uid)
+  context = dict(data = uid)
+  return render_template("selection.html", **context)
+
+@app.route('/user_entries')
+def user_entries():
+  return render_template("user_entries.html")
+
 
 # Example of adding new data to the database
 @app.route('/add', methods=['POST'])
@@ -189,6 +207,64 @@ def add():
 def login():
     abort(401)
     this_is_never_executed()
+
+@app.route('/user_login', methods=['POST'])
+def user_login():
+	input_name = request.form['username']
+	user_addr = request.form['user_addr']
+	print(input_name)
+	cursor = g.conn.execute('SELECT * FROM app_user')
+	#g.conn.execute(text(cmd), i_name = input_name)
+	#cursor = g.conn.execute("SELECT * FROM station")
+	user_id = -1
+	next_id = 1
+	for result in cursor:
+		next_id += 1
+		if result[2] == input_name:
+			user_id = result[0]
+	cursor.close()
+	print("uid is", user_id)
+	if user_id == -1 and user_addr == "":
+		flash('You are a first-time user. Please fill out the train station closest to you!')
+		return redirect('/')
+	elif user_id == -1 and user_addr != "":
+		cmd = 'INSERT INTO app_user(user_id, closest_station, name) VALUES (:id, :closest_station, :name)'
+		g.conn.execute(text(cmd), id=next_id, closest_station=user_addr, name=input_name)
+		session['user_id'] = next_id
+		session['user_name'] = input_name
+		context = dict(data = input_name)
+		return render_template("selection.html", **context)
+	elif user_id != -1:
+		session['user_name'] = input_name
+		session['user_id'] = user_id
+		#print("session id is ", session['user_id'])
+		context = dict(data = input_name)
+		return render_template("selection.html", **context)
+    
+@app.route('/view_saved_entries', methods=['POST'])
+def view_saved_entries():
+	print("Enter the function")
+	uid = session.get('user_id')
+	print("session uid is", uid)
+	cursor = g.conn.execute("SELECT * FROM lists")
+	location_ids = []
+	for result in cursor:
+		if result[0] == session['user_id']:
+			location_ids.append(result[1])
+	cursor.close()
+	cursor = g.conn.execute("SELECT * FROM location")
+	locations = []
+	for result in cursor:
+		if result[0] in location_ids:
+			locations.append((result[2], result[3]))
+
+	context = dict(data = locations)
+	return render_template("user_entries.html", **context)
+
+@app.route('/go_back', methods=['POST'])
+def go_back():
+	context = dict(data = session['user_name'])
+	return render_template("selection.html", **context)
 
 
 if __name__ == "__main__":

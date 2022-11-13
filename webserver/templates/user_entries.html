@@ -1,0 +1,12 @@
+<html>
+    <div>
+        <h1>Locations you've saved:</h1>
+        <p>(location address, business hour)</p>
+        {% for n in data %}
+        <div>{{n}}</div>
+        {% endfor %}
+    </div>
+    <form method="POST" action="/go_back">
+        <p>back to selection <input type="submit" value="Back"> </p>
+    </form>
+</html>
