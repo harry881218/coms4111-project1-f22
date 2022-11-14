@@ -1,0 +1,16 @@
+<html>
+    <h1>transportation info</h1>
+
+    <div>
+        <h1>Hi {{data}}, please enter the station information:</h1>
+    </div>
+    <body>
+        <form method="POST" action="/save_station">
+            <p>fill out information for your current location</p>
+            <p>address of the closest station: <input type="text" name="station_addr"></p>
+            <p>route number: <input type="int" name="route_id"></p>
+            <p>train number:<input type="int" name="train_id"></p>
+            <p><input type="submit" value="save"></p>
+        </form>
+    </body>
+</html>

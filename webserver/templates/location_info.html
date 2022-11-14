@@ -1,0 +1,16 @@
+<html>
+    <div>
+        <h1>Hi {{data}}, please tell us more about the location you are interested in:</h1>
+    </div>
+    <body>
+        <form method="POST" action="/save_location">
+            <p>fill out information for the new location you want to save with its address and business hour</p>
+            <p>address of the new location you want to save: <input type="text" name="location_addr"></p>
+            <p>type of the new location you want to save: <input type="text" name="location_type"></p>
+            <p>business hour for the new location you want to save: <input type="text" name="business_hour"></p>
+            <p>If you have been there before and would like to rate it in a scale of 5, please enter here else enter None <input type="text" name="rating"></p>
+            <p><input type="submit" value="save"></p>
+        </form>
+    </body>
+</html>
+

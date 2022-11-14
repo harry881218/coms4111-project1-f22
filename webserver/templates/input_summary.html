@@ -1,0 +1,16 @@
+<html>
+    <div>
+        <h1>input summary for the location you've saved:</h1>
+        <p>(location address, location type,  business hour, closest train station in this order)</p>
+        {% for n in data %}
+        <div>{{n}}</div>
+        {% endfor %}
+    </div>
+    <form method="POST" action="/go_back">
+        <p>please select contine or leave button to redirect to the next page </p>
+        <input type="submit" value="contine">
+    </form>
+    <form method="POST" action="/logout">
+        <input type="submit" value="leave">
+    </form>
+</html>

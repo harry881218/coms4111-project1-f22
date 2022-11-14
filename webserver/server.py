@@ -213,6 +213,8 @@ def user_login():
 	input_name = request.form['username']
 	user_addr = request.form['user_addr']
 	print(input_name)
+	#print("addr below")
+	print(user_addr)
 	cursor = g.conn.execute('SELECT * FROM app_user')
 	#g.conn.execute(text(cmd), i_name = input_name)
 	#cursor = g.conn.execute("SELECT * FROM station")
@@ -244,7 +246,7 @@ def user_login():
 @app.route('/view_saved_entries', methods=['POST'])
 def view_saved_entries():
 	print("Enter the function")
-	uid = session.get('user_id')
+	uid = session.get('user_id', None)
 	print("session uid is", uid)
 	cursor = g.conn.execute("SELECT * FROM lists")
 	location_ids = []
@@ -256,9 +258,38 @@ def view_saved_entries():
 	locations = []
 	for result in cursor:
 		if result[0] in location_ids:
-			locations.append((result[2], result[3]))
+			locations.append(result)
+	cursor.close()
+	print("locations line 263", locations)
+	cursor2 = g.conn.execute("SELECT * FROM locates")
+	tmp_outputs = []
+	for result in cursor2:
+		#print("line 267", locations[l])
+		for l in range(len(locations)):
+			print("l[0], result[0]", (locations[l][0], result[0]))
+			if locations[l][0] == result[0]:
+				tmp_outputs.append((locations[l][2], locations[l][1], locations[l][3], result[1]))
+	
+	cursor2.close()
+	print("tmp_outputs line 271", tmp_outputs)
+	# cursor2 = g.conn.execute("SELECT * FROM locates")
+	# tmp_outputs = []
+	# for l in locations:
+  	# 	for result in cursor2:
+	# 		if l[0] == result[0]:
+	# 			tmp_outputs.append((l[2], l[1], l[3], result[1]))
+    # cursor2.close()
 
-	context = dict(data = locations)
+	# # get station name with station id
+	outputs = []
+	cursor = g.conn.execute("SELECT * from station")
+	for t in tmp_outputs:
+		for result in cursor:
+			if result[0] == t[3]:
+				outputs.append((t[0], t[1], t[2], result[1]))
+	cursor.close()
+	print("outputs line 288", outputs)
+	context = dict(data = outputs)
 	return render_template("user_entries.html", **context)
 
 @app.route('/go_back', methods=['POST'])
@@ -266,6 +297,107 @@ def go_back():
 	context = dict(data = session['user_name'])
 	return render_template("selection.html", **context)
 
+@app.route('/input', methods=['POST'])
+def input():
+	context = dict(data = session['user_name'])
+	return render_template("location_info.html", **context)
+
+@app.route('/save_location', methods=["POST"])
+def save_location():
+	l_type = request.form['location_type']
+	l_addr = request.form['location_addr']
+	business_hour = request.form['business_hour']
+
+	cursor = g.conn.execute("SELECT * FROM location")
+	location_ids = []
+	ignore_entry = False
+	location_id = -1
+	for result in cursor:
+		if result[2] == l_addr:
+			ignore_entry = True
+			location_id = result[0]
+		location_ids.append(result[0])
+	new_id = max(location_ids) + 1
+	cursor.close()
+
+	if ignore_entry == False:
+		cmd = 'INSERT INTO location(location_id, location_type, address, business_hour) VALUES (:l_id, :l_type, :l_addr, :business_hour)'
+		#cmd_cont = 'VALUES (:l_id, :l_type, :l_addr, :business_hour, :visited, :rating, :review)'
+		g.conn.execute(text(cmd), l_id=new_id, l_type=l_type, l_addr=l_addr, business_hour=business_hour)
+		location_id = new_id
+
+	cmd2 = 'INSERT INTO lists(user_id, location_id, rating) VALUES (:u_id, :l_id, :rating)'
+	uid = session.get('user_id', None)
+	rating = request.form['rating']
+	#rating = -1.0
+	if rating == "None":
+		rating = None
+	g.conn.execute(text(cmd2), u_id=uid, l_id=location_id, rating=rating) #TODO: check duplicate?
+	session['location_id'] = location_id
+	session['location_addr'] = l_addr
+	session['location_type'] = l_type
+	session['business_hour'] = business_hour
+	context = dict(data = session['user_name'])
+	return render_template("transportation_info.html", **context)
+
+@app.route('/save_station', methods=["POST"])
+def save_station():
+	station_addr = request.form['station_addr']
+	route_id = request.form['route_id']
+	train_id = request.form['train_id']
+	
+	cursor = g.conn.execute("SELECT * FROM station")
+	add_station = True
+	station_ids = []
+	s_id = -1
+	for result in cursor:
+		if result[1] == station_addr:
+			add_station = False
+			s_id = result[0]
+		station_ids.append(result[0])
+	
+	if add_station == True:
+		new_id = max(station_ids) + 1
+		cmd = 'INSERT INTO station(station_id, address) VALUES (:s_id, :s_addr)';
+		s_id = new_id
+		g.conn.execute(text(cmd), s_id=new_id, s_addr=station_addr)
+
+	cursor = g.conn.execute("SELECT * FROM locates")
+	add_locates = True
+	for result in cursor:
+		if result[0] == session.get('location_id', None):
+			add_locates = False
+	print("line 365 s_id is", s_id)
+	if add_locates == True:
+		cmd = 'INSERT INTO locates(location_id, station_id) VALUES (:l_id, :s_id)'
+		g.conn.execute(text(cmd), l_id=session.get('location_id', None), s_id=s_id)
+
+	# TODO: check duplicate?
+	cmd = 'INSERT INTO consists(route_id, station_id) VALUES (:route_id, :station_id)'
+	g.conn.execute(text(cmd), route_id=route_id, station_id=s_id)
+
+	# TODO: check duplicate?
+	cmd = 'INSERT INTO train(train_id) VALUES (:train_id)'
+	g.conn.execute(text(cmd), train_id=train_id)
+
+	user_name = session.get('user_name')
+	session['closest_station'] = station_addr
+	context = dict(data = [session.get('location_addr'), session.get('location_type'), session.get('business_hour'), station_addr])
+	return render_template("input_summary.html", **context)
+
+@app.route('/logout', methods=["POST"])	
+def logout():
+	session.pop('user_name', None)
+	session.pop('user_id', None)
+	session.pop('location_id', None)
+	session.pop('business_hour', None)
+	session.pop('location_type', None)
+	session.pop('location_addr', None)
+	session.pop('closest_station', None)
+	return render_template("index.html")
+
+		
+	
 
 if __name__ == "__main__":
   import click
