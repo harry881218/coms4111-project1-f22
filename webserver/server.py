@@ -208,7 +208,7 @@ def login():
     abort(401)
     this_is_never_executed()
 
-@app.route('/user_login', methods=['POST'])
+@app.route('/user_login', methods=['POST']) #TODO: check when only address is input
 def user_login():
 	input_name = request.form['username']
 	user_addr = request.form['user_addr']
@@ -283,12 +283,14 @@ def view_saved_entries():
 	# # get station name with station id
 	outputs = []
 	cursor = g.conn.execute("SELECT * from station")
-	for t in tmp_outputs:
-		for result in cursor:
+	for result in cursor:
+		print("line 287")
+		for t in tmp_outputs:
+			print("line 288", (result[0], t[3]))
 			if result[0] == t[3]:
 				outputs.append((t[0], t[1], t[2], result[1]))
 	cursor.close()
-	print("outputs line 288", outputs)
+	print("outputs line 292", outputs)
 	context = dict(data = outputs)
 	return render_template("user_entries.html", **context)
 
