@@ -213,6 +213,8 @@ def user_login():
 	input_name = request.form['username']
 	user_addr = request.form['user_addr']
 	print(input_name)
+	if input_name.strip() == "":
+		return redirect('/')
 	#print("addr below")
 	print(user_addr)
 	cursor = g.conn.execute('SELECT * FROM app_user')
@@ -220,10 +222,12 @@ def user_login():
 	#cursor = g.conn.execute("SELECT * FROM station")
 	user_id = -1
 	next_id = 1
+	in_db_addr = ""
 	for result in cursor:
 		next_id += 1
 		if result[2] == input_name:
 			user_id = result[0]
+			in_db_addr = result[1]
 	cursor.close()
 	print("uid is", user_id)
 	if user_id == -1 and user_addr == "":
@@ -234,6 +238,7 @@ def user_login():
 		g.conn.execute(text(cmd), id=next_id, closest_station=user_addr, name=input_name)
 		session['user_id'] = next_id
 		session['user_name'] = input_name
+		session['user_addr'] = user_addr
 		context = dict(data = input_name)
 		return render_template("selection.html", **context)
 	elif user_id != -1:
@@ -241,6 +246,12 @@ def user_login():
 		session['user_id'] = user_id
 		#print("session id is ", session['user_id'])
 		context = dict(data = input_name)
+		if user_addr.strip() != "":
+			cmd = 'UPDATE app_user SET closest_station = :user_addr WHERE user_id = :u_id'
+			g.conn.execute(text(cmd), user_addr=user_addr, u_id=user_id)
+			session['user_addr'] = user_addr
+		else:
+			session['user_addr'] = in_db_addr
 		return render_template("selection.html", **context)
     
 @app.route('/view_saved_entries', methods=['POST'])
@@ -282,6 +293,7 @@ def view_saved_entries():
 
 	# # get station name with station id
 	outputs = []
+	outputs.append(session.get('user_addr'))
 	cursor = g.conn.execute("SELECT * from station")
 	for result in cursor:
 		print("line 287")
@@ -291,6 +303,8 @@ def view_saved_entries():
 				outputs.append((t[0], t[1], t[2], result[1]))
 	cursor.close()
 	print("outputs line 292", outputs)
+	length = len(outputs) + 1
+	outputs.insert(1, length)
 	context = dict(data = outputs)
 	return render_template("user_entries.html", **context)
 
@@ -328,7 +342,7 @@ def save_location():
 		g.conn.execute(text(cmd), l_id=new_id, l_type=l_type, l_addr=l_addr, business_hour=business_hour)
 		location_id = new_id
 
-	cmd2 = 'INSERT INTO lists(user_id, location_id, rating) VALUES (:u_id, :l_id, :rating)'
+	cmd2 = 'INSERT INTO lists(user_id, location_id, rating) VALUES (:u_id, :l_id, :rating) ON CONFLICT (user_id, location_id) DO UPDATE SET rating = EXCLUDED.rating'
 	uid = session.get('user_id', None)
 	rating = request.form['rating']
 	#rating = -1.0
@@ -346,6 +360,7 @@ def save_location():
 def save_station():
 	station_addr = request.form['station_addr']
 	route_id = request.form['route_id']
+	route_direction = request.form['route_direction']
 	train_id = request.form['train_id']
 	
 	cursor = g.conn.execute("SELECT * FROM station")
@@ -374,12 +389,15 @@ def save_station():
 		cmd = 'INSERT INTO locates(location_id, station_id) VALUES (:l_id, :s_id)'
 		g.conn.execute(text(cmd), l_id=session.get('location_id', None), s_id=s_id)
 
+	cmd = 'INSERT INTO route(route_id, direction) VALUES (:route_id, :route_direction) ON CONFLICT (route_id) DO NOTHING;'
+	g.conn.execute(text(cmd), route_id=route_id, route_direction=route_direction)
+
 	# TODO: check duplicate?
-	cmd = 'INSERT INTO consists(route_id, station_id) VALUES (:route_id, :station_id)'
+	cmd = 'INSERT INTO consists(route_id, station_id) VALUES (:route_id, :station_id) ON CONFLICT (route_id, station_id) DO NOTHING;'
 	g.conn.execute(text(cmd), route_id=route_id, station_id=s_id)
 
 	# TODO: check duplicate?
-	cmd = 'INSERT INTO train(train_id) VALUES (:train_id)'
+	cmd = 'INSERT INTO train(train_id) VALUES (:train_id) ON CONFLICT (train_id) DO NOTHING'
 	g.conn.execute(text(cmd), train_id=train_id)
 
 	user_name = session.get('user_name')

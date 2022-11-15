@@ -1,9 +1,11 @@
 <html>
     <div>
+        <h1>The train station closest to you:</h1>
+        <div>{{data[0]}}</div>
         <h1>Locations you've saved:</h1>
         <p>(location address, location type,  business hour, closest train station)</p>
-        {% for n in data %}
-        <div>{{n}}</div>
+        {% for n in range(2, data[1]) %}
+        <div>{{data[n]}}</div>
         {% endfor %}
     </div>
     <form method="POST" action="/go_back">
